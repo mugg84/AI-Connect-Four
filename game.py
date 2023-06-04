@@ -1,13 +1,25 @@
 import pygame
-import time
 import numpy as np
 
 
 class GameInformation:
-    def __init__(self, winner, invalid_moves, total_turns):
+    def __init__(
+        self,
+        winner,
+        invalid_moves,
+        turn,
+        total_turns,
+        three_liners,
+        two_liners,
+        block_four_liners,
+    ):
         self.winner = winner
         self.invalid_moves = invalid_moves
+        self.turn = turn
         self.total_turns = total_turns
+        self.three_liners = three_liners
+        self.two_liners = two_liners
+        self.block_four_liners = block_four_liners
 
 
 class Game:
@@ -27,7 +39,11 @@ class Game:
         self.screen = screen
         self.game_over = False
         self.turn = 0
-        self.invalid_moves = 0
+        self.invalid_moves = [0, 0]
+        self.three_liners = [set(), set()]
+        self.two_liners = [set(), set()]
+        self.winner = [0, 0]
+        self.block_four_liners = [0, 0]
         self.total_turns = 0
         self.board = self.create_board()
 
@@ -60,7 +76,7 @@ class Game:
                             == board[row + dr][col + dc]
                             == board[row + dr * 2][col + dc * 2]
                             == board[row + dr * 3][col + dc * 3]
-                            != 0
+                            == self.turn + 1
                         ):
                             return True
                     except IndexError:
@@ -139,6 +155,19 @@ class Game:
         if 0 < col < 8 and self.check_if_valid(self.board, col):
             self.drop_token(self.board, col, self.turn + 1)
 
+            self.check_if_line(self.board, self.turn)
+
+            if self.check_if_winner(self.board):
+                self.display_winner()
+
+            # Switch to the other player
+            self.turn += 1
+            self.turn %= 2
+
+    def player_ai_move(self, col):
+        if 0 < col < 8 and self.check_if_valid(self.board, col):
+            self.drop_token(self.board, col, self.turn + 1)
+
         if self.check_if_winner(self.board):
             self.display_winner()
 
@@ -146,35 +175,80 @@ class Game:
         self.turn += 1
         self.turn %= 2
 
-    def ai_move(self, net, genome, board):
+    def check_if_line(self, board, turn):
+        count = []
+        count2 = []
+        # Check all possible directions for a two-liners and three-liners
+        directions = [(1, -1), (1, 0), (1, 1), (0, 1), (-1, 0)]
+
+        for row in range(self.ROWS):
+            for col in range(self.COLUMS):
+                for dr, dc in directions:
+                    try:
+                        if board[row][col] == board[row + dr][col + dc] == board[
+                            row + dr * 2
+                        ][col + dc * 2] == turn + 1 and not (
+                            0 <= row + dr * 3 < self.ROWS
+                            and 0 <= col + dc * 3 < self.COLUMS
+                            and board[row + dr * 3][col + dc * 3] == (1 - turn) + 1
+                        ):
+                            self.three_liners[turn].add((row, col))
+
+                        elif board[row][col] == board[row + dr][
+                            col + dc
+                        ] == turn + 1 and not (
+                            0 <= row + dr * 2 < self.ROWS
+                            and 0 <= col + dc * 2 < self.COLUMS
+                            and board[row + dr * 2][col + dc * 2] == (1 - turn) + 1
+                        ):
+                            self.two_liners[turn].add((row, col))
+
+                    except IndexError:
+                        pass
+
+    def ai_move(self, net, board):
+        self.total_turns += 1
+
         flat_board = board.flatten()
         output = net.activate(flat_board)
         decision = output.index(max(output))
-        self.total_turns += 1
+
         if self.check_if_valid(board, decision):
             self.drop_token(self.board, decision, self.turn + 1)
-
+            self.check_if_line(self.board, self.turn)
         else:
-            self.invalid_moves += 1
-            genome.fitness -= 0.5
+            self.invalid_moves[self.turn] += 1
 
-        game_info = GameInformation(False, self.invalid_moves, self.total_turns)
-        if self.is_board_full(board):
+        if self.check_if_winner(board):
+            self.winner[self.turn] += 0.2
+            self.winner[1 - self.turn] -= 0.5
             self.game_over = True
-        elif self.check_if_winner(board):
-            genome.fitness += 1
-            game_info.winner = True
+        elif self.is_board_full(board):
             self.game_over = True
-
         elif self.check_if_valid(board, decision):
             # Switch to the other player
             self.turn += 1
             self.turn %= 2
 
+    def get_info(self):
+        game_info = GameInformation(
+            self.winner,
+            self.invalid_moves,
+            self.turn,
+            self.total_turns,
+            self.three_liners,
+            self.two_liners,
+            self.block_four_liners,
+        )
         return game_info
 
     def new_game(self):
         # Reset the game for a new round
-        self.board = self.create_board()
-        self.turn = 0
         self.game_over = False
+        self.turn = 0
+        self.invalid_moves = [0, 0]
+        self.three_liners = [set(), set()]
+        self.two_liners = [set(), set()]
+        self.winner = [0, 0]
+        self.total_turns = 0
+        self.board = self.create_board()
