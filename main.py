@@ -40,6 +40,9 @@ class Connect:
                     # If the mouse is clicked, register the player's move
                     self.game.player_move(event)
                     game_info = self.game.get_info()
+                    print(
+                        f"TURN: {1 - game_info.turn}, 3liners: {game_info.total_three_liners}, stopped: {game_info.block_four_liners}"
+                    )
 
                 # Redraw the game board and update the display
                 self.game.draw()
@@ -100,48 +103,52 @@ class Connect:
         self.genome2 = genome2
 
         while run:
-            self.game.draw()
+            # self.game.draw()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return True
-
             if self.game.turn == 0:
-                # pygame.time.wait(1000)
+                # pygame.time.wait(2000)
                 self.game.ai_move(net1, self.game.board)
-                game_info = self.game.get_info()
             else:
-                # pygame.time.wait(1000)
+                # pygame.time.wait(2000)
                 self.game.ai_move(net2, self.game.board)
-                game_info = self.game.get_info()
 
-            if self.game.game_over or game_info.invalid_moves[game_info.turn] > 2:
+            game_info = self.game.get_info()
+
+            if (
+                self.game.game_over
+                or game_info.invalid_moves[0] + game_info.invalid_moves[1] > 2
+            ):
                 self.calculate_fitness(game_info)
                 break
 
-            self.game.draw()
-            pygame.display.update()
+            # self.game.draw()
+            # pygame.display.update()
 
         return False
 
     def calculate_fitness(self, game_info):
+        average_points = 2
         self.genome1.fitness += (
             game_info.winner[0]
-            + game_info.total_turns / (self.game.ROWS * self.game.COLUMS / 2) / 42
-            + len(game_info.three_liners[0]) * 2
-            + len(game_info.two_liners[0]) / 5
-            + game_info.block_four_liners[0] * 2.5
+            + game_info.total_turns / (self.game.ROWS * self.game.COLUMNS / 2) / 42
+            + len(game_info.total_three_liners[0]) / 2
+            + len(game_info.total_two_liners[0]) / 5
+            + game_info.block_four_liners[0] * 2
             - game_info.invalid_moves[0]
+            - average_points
         )
         self.genome2.fitness += (
             game_info.winner[1]
-            + game_info.total_turns / (self.game.ROWS * self.game.COLUMS / 2) / 42
-            + len(game_info.three_liners[1]) * 2
-            + len(game_info.two_liners[1]) / 5
-            + game_info.block_four_liners[1] * 2.5
+            + game_info.total_turns / (self.game.ROWS * self.game.COLUMNS / 2) / 42
+            + len(game_info.total_three_liners[1]) / 2
+            + len(game_info.total_two_liners[1]) / 5
+            + game_info.block_four_liners[1] * 2
             - game_info.invalid_moves[1]
+            - average_points
         )
-        print(self.genome1.fitness, self.genome2.fitness)
 
 
 def test_best_network(config):
@@ -169,10 +176,10 @@ if __name__ == "__main__":
     )
 
     # Creating an instance of the Connect class and starting the game
-    game = Connect()
-    game.main()
+    # game = Connect()
+    # game.main()
 
     # train genome
-# neat_functions.run_neat(config)
+    neat_functions.run_neat(config)
 
-# test_best_network(config)
+    # test_best_network(config)

@@ -9,22 +9,22 @@ class GameInformation:
         invalid_moves,
         turn,
         total_turns,
-        three_liners,
-        two_liners,
+        total_three_liners,
+        total_two_liners,
         block_four_liners,
     ):
         self.winner = winner
         self.invalid_moves = invalid_moves
         self.turn = turn
         self.total_turns = total_turns
-        self.three_liners = three_liners
-        self.two_liners = two_liners
+        self.total_three_liners = total_three_liners
+        self.total_two_liners = total_two_liners
         self.block_four_liners = block_four_liners
 
 
 class Game:
     ROWS = 6
-    COLUMS = 7
+    COLUMNS = 7
     SQUARE = BORDER = 100
     RADIUS = int(SQUARE / 2 - 10)
     BLACK = 0, 0, 0
@@ -40,8 +40,8 @@ class Game:
         self.game_over = False
         self.turn = 0
         self.invalid_moves = [0, 0]
-        self.three_liners = [set(), set()]
-        self.two_liners = [set(), set()]
+        self.total_two_liners = [set(), set()]
+        self.total_three_liners = [set(), set()]
         self.winner = [0, 0]
         self.block_four_liners = [0, 0]
         self.total_turns = 0
@@ -49,7 +49,7 @@ class Game:
 
     def create_board(self):
         # Creating a 2D array with all elements 0
-        board = np.zeros((self.ROWS, self.COLUMS))
+        board = np.zeros((self.ROWS, self.COLUMNS))
         return board
 
     def check_if_valid(self, board, col):
@@ -68,7 +68,7 @@ class Game:
         directions = [(1, -1), (1, 0), (1, 1), (0, 1)]
 
         for row in range(self.ROWS):
-            for col in range(self.COLUMS):
+            for col in range(self.COLUMNS):
                 for dr, dc in directions:
                     try:
                         if (
@@ -89,7 +89,7 @@ class Game:
     def draw(self):
         # Draw the game board and the pieces
         for row in range(self.ROWS):
-            for col in range(self.COLUMS):
+            for col in range(self.COLUMNS):
                 # Draw the squares of the game board
                 pygame.draw.rect(
                     self.screen,
@@ -153,9 +153,12 @@ class Game:
         )
         col = event.pos[0] // 100
         if 0 < col < 8 and self.check_if_valid(self.board, col):
+            opponent_three_liners = self.check_if_line(self.board, self.turn)
             self.drop_token(self.board, col, self.turn + 1)
+            new_oppponent_three_liners = self.check_if_line(self.board, self.turn)
 
-            self.check_if_line(self.board, self.turn)
+            if opponent_three_liners > new_oppponent_three_liners:
+                self.block_four_liners[self.turn] += 1
 
             if self.check_if_winner(self.board):
                 self.display_winner()
@@ -176,35 +179,57 @@ class Game:
         self.turn %= 2
 
     def check_if_line(self, board, turn):
-        count = []
-        count2 = []
         # Check all possible directions for a two-liners and three-liners
-        directions = [(1, -1), (1, 0), (1, 1), (0, 1), (-1, 0)]
+
+        current_three_liners = 0
+        directions = [
+            (1, 0),
+            (1, 1),
+            (1, -1),
+            (0, 1),
+            (-1, -1),
+            (-1, 1),
+        ]
 
         for row in range(self.ROWS):
-            for col in range(self.COLUMS):
+            for col in range(self.COLUMNS):
                 for dr, dc in directions:
+                    if row == 5 and col == 4 and dr == 0 and dc == -1:
+                        print(
+                            board[row + dr * 3][col + dc * 3],
+                        )
                     try:
-                        if board[row][col] == board[row + dr][col + dc] == board[
+                        if (
+                            row + dr * 3 < self.ROWS
+                            and col + dc * 3 < self.COLUMNS
+                            and board[row + dr * 3][col + dc * 3] == 0
+                            or row - dr >= 0
+                            and col - dc >= 0
+                            and board[row - dr][col - dc] == 0
+                        ) and board[row][col] == board[row + dr][col + dc] == board[
                             row + dr * 2
-                        ][col + dc * 2] == turn + 1 and not (
-                            0 <= row + dr * 3 < self.ROWS
-                            and 0 <= col + dc * 3 < self.COLUMS
-                            and board[row + dr * 3][col + dc * 3] == (1 - turn) + 1
-                        ):
-                            self.three_liners[turn].add((row, col))
+                        ][
+                            col + dc * 2
+                        ] == self.turn + 1:
+                            self.total_three_liners[turn].add((row, col))
 
-                        elif board[row][col] == board[row + dr][
-                            col + dc
-                        ] == turn + 1 and not (
-                            0 <= row + dr * 2 < self.ROWS
-                            and 0 <= col + dc * 2 < self.COLUMS
-                            and board[row + dr * 2][col + dc * 2] == (1 - turn) + 1
-                        ):
-                            self.two_liners[turn].add((row, col))
-
+                        if (
+                            row + dr * 3 < self.ROWS
+                            and col + dc * 3 < self.COLUMNS
+                            and board[row + dr * 3][col + dc * 3] == 0
+                            or row - dr >= 0
+                            and col - dc >= 0
+                            and board[row - dr][col - dc] == 0
+                        ) and board[row][col] == board[row + dr][col + dc] == board[
+                            row + dr * 2
+                        ][
+                            col + dc * 2
+                        ] == 2 - self.turn:
+                            current_three_liners += 1
                     except IndexError:
                         pass
+
+        return current_three_liners
 
     def ai_move(self, net, board):
         self.total_turns += 1
@@ -214,21 +239,26 @@ class Game:
         decision = output.index(max(output))
 
         if self.check_if_valid(board, decision):
+            opponent_three_liners = self.check_if_line(self.board, self.turn)
             self.drop_token(self.board, decision, self.turn + 1)
-            self.check_if_line(self.board, self.turn)
-        else:
-            self.invalid_moves[self.turn] += 1
+            new_oppponent_three_liners = self.check_if_line(self.board, self.turn)
 
-        if self.check_if_winner(board):
-            self.winner[self.turn] += 0.2
-            self.winner[1 - self.turn] -= 0.5
-            self.game_over = True
-        elif self.is_board_full(board):
-            self.game_over = True
-        elif self.check_if_valid(board, decision):
-            # Switch to the other player
-            self.turn += 1
-            self.turn %= 2
+            if opponent_three_liners > new_oppponent_three_liners:
+                self.block_four_liners[self.turn] += 1
+
+            # self.check_if_line(self.board, self.turn)
+
+            if self.check_if_winner(board):
+                self.winner[self.turn] += 0.2
+                self.winner[1 - self.turn] -= 0.5
+                self.game_over = True
+            elif self.is_board_full(board):
+                self.game_over = True
+            else:
+                self.turn += 1
+                self.turn %= 2
+        else:
+            self.invalid_moves[1 - self.turn] += 1
 
     def get_info(self):
         game_info = GameInformation(
@@ -236,8 +266,8 @@ class Game:
             self.invalid_moves,
             self.turn,
             self.total_turns,
-            self.three_liners,
-            self.two_liners,
+            self.total_three_liners,
+            self.total_two_liners,
             self.block_four_liners,
         )
         return game_info
@@ -248,7 +278,7 @@ class Game:
         self.turn = 0
         self.invalid_moves = [0, 0]
         self.three_liners = [set(), set()]
-        self.two_liners = [set(), set()]
+        self.total_two_liners = [set(), set()]
         self.winner = [0, 0]
         self.total_turns = 0
         self.board = self.create_board()
