@@ -162,6 +162,8 @@ class Game:
 
             if self.check_if_winner(self.board):
                 self.display_winner()
+            elif self.is_board_full(self.board):
+                self.game_over = True
 
             # Switch to the other player
             self.turn += 1
@@ -194,10 +196,6 @@ class Game:
         for row in range(self.ROWS):
             for col in range(self.COLUMNS):
                 for dr, dc in directions:
-                    if row == 5 and col == 4 and dr == 0 and dc == -1:
-                        print(
-                            board[row + dr * 3][col + dc * 3],
-                        )
                     try:
                         if (
                             row + dr * 3 < self.ROWS
@@ -212,6 +210,20 @@ class Game:
                             col + dc * 2
                         ] == self.turn + 1:
                             self.total_three_liners[turn].add((row, col))
+
+                        if (
+                            row + dr * 2 < self.ROWS
+                            and col + dc * 2 < self.COLUMNS
+                            and board[row + dr * 2][col + dc * 2] == 0
+                            or row - dr >= 0
+                            and col - dc >= 0
+                            and board[row - dr][col - dc] == 0
+                        ) and board[row][col] == board[row + dr][col + dc] == board[
+                            row + dr
+                        ][
+                            col + dc
+                        ] == self.turn + 1:
+                            self.total_two_liners[turn].add((row, col))
 
                         if (
                             row + dr * 3 < self.ROWS
@@ -277,8 +289,9 @@ class Game:
         self.game_over = False
         self.turn = 0
         self.invalid_moves = [0, 0]
-        self.three_liners = [set(), set()]
+        self.total_three_liners = [set(), set()]
         self.total_two_liners = [set(), set()]
+        self.block_four_liners = [0, 0]
         self.winner = [0, 0]
         self.total_turns = 0
         self.board = self.create_board()

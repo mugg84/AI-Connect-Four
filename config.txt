@@ -1,7 +1,7 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 1000
-pop_size              = 100
+pop_size              = 5
 reset_on_extinction   = False
 
 [DefaultStagnation]
@@ -11,12 +11,12 @@ species_elitism      = 2
 
 [DefaultReproduction]
 elitism            = 2
-survival_threshold = 0.2
+survival_threshold = 0.18
 
 [DefaultGenome]
 # node activation options
 activation_default      = relu
-activation_mutate_rate  = 1.0
+activation_mutate_rate  = 0.9
 activation_options      = relu
 
 # node aggregation options
@@ -76,4 +76,4 @@ weight_mutate_rate      = 1
 weight_replace_rate     = 0.1
 
 [DefaultSpeciesSet]
-compatibility_threshold = 2.4
+compatibility_threshold = 2.3

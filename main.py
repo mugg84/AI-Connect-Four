@@ -3,7 +3,9 @@ import neat
 import os
 import pickle
 import game
-import neat_functions
+
+# import neat_functions
+
 
 pygame.init()
 
@@ -108,47 +110,78 @@ class Connect:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return True
+
             if self.game.turn == 0:
-                # pygame.time.wait(2000)
+                # pygame.time.wait(1000)
                 self.game.ai_move(net1, self.game.board)
             else:
-                # pygame.time.wait(2000)
+                # pygame.time.wait(1000)
                 self.game.ai_move(net2, self.game.board)
 
             game_info = self.game.get_info()
+
+            # pygame.display.update()
 
             if (
                 self.game.game_over
                 or game_info.invalid_moves[0] + game_info.invalid_moves[1] > 2
             ):
                 self.calculate_fitness(game_info)
-                break
+                self.game.new_game()
 
-            # self.game.draw()
-            # pygame.display.update()
+                break
 
         return False
 
     def calculate_fitness(self, game_info):
-        average_points = 2
+        # print(
+        #     f"winner: {game_info.winner}, total_turns: {game_info.total_turns}, 3liners: {game_info.total_three_liners}, 2liners: {game_info.total_two_liners}, block4: {game_info.block_four_liners}, invalid: {game_info.invalid_moves}"
+        # )
         self.genome1.fitness += (
             game_info.winner[0]
             + game_info.total_turns / (self.game.ROWS * self.game.COLUMNS / 2) / 42
-            + len(game_info.total_three_liners[0]) / 2
+            + len(game_info.total_three_liners[0])
             + len(game_info.total_two_liners[0]) / 5
             + game_info.block_four_liners[0] * 2
             - game_info.invalid_moves[0]
-            - average_points
         )
         self.genome2.fitness += (
             game_info.winner[1]
             + game_info.total_turns / (self.game.ROWS * self.game.COLUMNS / 2) / 42
-            + len(game_info.total_three_liners[1]) / 2
+            + len(game_info.total_three_liners[1])
             + len(game_info.total_two_liners[1]) / 5
             + game_info.block_four_liners[1] * 2
             - game_info.invalid_moves[1]
-            - average_points
         )
+
+
+def run_neat(config):
+    p = neat.Population(config)
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(15))
+
+    # Run the algorithm for up to 1000 generations and save the best genome
+    winner = p.run(eval_genomes)
+
+    with open("best.pickle", "wb") as f:
+        # Save the best genome for future use
+        pickle.dump(winner, f)
+
+
+# Run each genome through the game until the fitness threshold is reached or the epoch limit is hit
+def eval_genomes(genomes, config):
+    pygame.display.set_caption("Connect 4")
+
+    for i, (_genome_id1, genome1) in enumerate(genomes):
+        genome1.fitness = 0
+        for _genome_id2, genome2 in genomes[min(i + 1, len(genomes) - 1) :]:
+            genome2.fitness = 0 if genome2.fitness == None else genome2.fitness
+
+            force_quit = game.train_ai(genome1, genome2, config)
+            if force_quit:
+                quit()
 
 
 def test_best_network(config):
@@ -156,11 +189,8 @@ def test_best_network(config):
         winner = pickle.load(f)
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
-    width, height = SCREEN_WIDTH, SCREEN_HEIGHT
-    win = pygame.display.set_mode((width, height))
-    pygame.display.set_caption("Pong")
-    connect_four = Connect(win, width, height)
-    connect_four.test_ai(winner_net)
+    pygame.display.set_caption("Connect4")
+    game.test_ai(winner_net)
 
 
 if __name__ == "__main__":
@@ -176,10 +206,10 @@ if __name__ == "__main__":
     )
 
     # Creating an instance of the Connect class and starting the game
-    # game = Connect()
+    game = Connect()
     # game.main()
 
     # train genome
-    neat_functions.run_neat(config)
+    run_neat(config)
 
     # test_best_network(config)

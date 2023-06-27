@@ -28,8 +28,7 @@ def eval_genomes(genomes, config):
         genome1.fitness = 0
         for _genome_id2, genome2 in genomes[min(i + 1, len(genomes) - 1) :]:
             genome2.fitness = 0 if genome2.fitness == None else genome2.fitness
-            game = main.Connect()
 
-            force_quit = game.train_ai(genome1, genome2, config)
+            force_quit = main.game.train_ai(genome1, genome2, config)
             if force_quit:
                 quit()
